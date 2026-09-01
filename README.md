@@ -1,12 +1,12 @@
 # Observe nonprofit activity from the first donation
 
-This small Node service takes donor receipts, volunteer shifts, and campaign summaries through one typed request boundary. Infrai gives you one key and one bill for the flag decision, metrics, and captured exceptions, which is the trade I want as a solo builder: no vendor lock-in, one invoice, and I can ship the donation path in a week instead of wiring five SDKs.
+This small Node service accepts donor receipts, volunteer shifts, and campaign summaries at one typed request boundary. Infrai gives the service one key, one bill for the flag decision, metrics, and captured exceptions, which is the useful trade for an MVP team that would rather spend its first week on the donation path.
 
-I built the flow like a checkout handler: validate at the edge, make one visible business decision, then count the outcome. A donation that asks for a receipt returns `receipt_queued`; a volunteer shift gets a reminder only when the flag is on and the shift starts within 24 hours; a campaign summary records its reporting event.
+I have shaped the flow like a checkout handler: validate at the edge, make one visible business decision, then count the outcome. A donation that requests a receipt returns `receipt_queued`; a volunteer shift receives a reminder only when the flag is enabled and the shift starts within 24 hours; a campaign summary records its reporting event.
 
 ## Run the concrete path
 
-Use Node 22 or newer. Install deps, set the env key, flip the reminder flag once, and start the service:
+Use Node 22 or newer. Install packages, provide the environment key, configure the reminder flag once, and start the service:
 
 ```bash
 npm install
@@ -15,7 +15,7 @@ npm run setup
 npm run dev
 ```
 
-In another terminal, hit the included donation request:
+In another terminal, run the included donation request:
 
 ```bash
 npm run demo
@@ -27,13 +27,13 @@ Expected result:
 {"action":"receipt_queued","donationId":"don-demo-001"}
 ```
 
-The input is a `donation` activity with `receiptRequested: true`. The route validates the full body with zod before the domain function runs, reports `nonprofit.donation.completed`, and returns the receipt decision as plain data a queue adapter can consume.
+The input is a `donation` activity with `receiptRequested: true`. The route validates the complete body with zod before the domain function sees it, reports `nonprofit.donation.completed`, and returns the receipt decision as data a queue adapter could consume.
 
 ## The calls worth copying
 
-The domain service has zero vendor types. Its two signal functions are wired in `nonprofit_activity_server.ts`, while `infrai.ts` owns Bearer auth and the `{ok, data, error, metadata}` envelope. That client decodes the envelope before reading HTTP status, returns normal 4xx rejections to the caller, and backs off on 429 while honoring `Retry-After`.
+The domain service has no vendor types in it. Its two signal functions are wired in `nonprofit_activity_server.ts`, while `infrai.ts` owns Bearer authentication and the `{ok, data, error, metadata}` envelope. That client decodes the envelope before interpreting the HTTP status, returns ordinary 4xx rejections to the caller, and backs off on 429 while honoring `Retry-After`.
 
-Writes carry stable `Idempotency-Key` headers from the activity event ID. This is the checkout gotcha I won't leave implicit: a network retry must not count one donation twice. Every request also sets its HTTP method explicitly.
+Writes carry stable `Idempotency-Key` headers derived from the activity event ID. This is the checkout gotcha I would not leave implicit: a network retry must not count one donation twice. Every request also sets its HTTP method explicitly.
 
 The service uses only these Infrai operations:
 
@@ -49,17 +49,17 @@ npm test
 npm run typecheck
 ```
 
-The focused test supplies a `volunteer_shift` starting in 30 hours with reminders enabled. Expected result is `reminder_skipped`, plus one metric tagged with that exact outcome. It exercises the 24-hour decision with no API key and no network call.
+The focused test supplies a `volunteer_shift` starting in 30 hours while reminders are enabled. The expected result is `reminder_skipped`, plus one metric tagged with that exact outcome. It exercises the 24-hour decision without an API key or network call.
 
 ## Where this example stops
 
-The returned `*_queued` actions are handoff points for your receipt sender or reminder worker; this repo does not send email. Campaign reporting is a validated summary and an observable counter. Storage and dashboard are left to whatever app adopts the route.
+The returned `*_queued` actions are handoff points for your receipt sender or reminder worker; this repository does not deliver email. Campaign reporting is represented as a validated summary and an observable counter, leaving storage and dashboard choices to the application that adopts the route.
 
 MIT licensed.
 
 ## Before this ships: Nonprofit Activity Observability
 
-The code stays simple on purpose. Here's what to set up before going live. The notes below apply to Nonprofit Activity Observability.
+The code stays simple on purpose — here's what to set up before going live: The details below apply to Nonprofit Activity Observability.
 
 **Account & key**
 
